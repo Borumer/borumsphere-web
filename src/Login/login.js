@@ -17,11 +17,47 @@ export default function Login() {
 		document.title = "Login - Borum Sphere";
 	}, []);
 
-	const handleLogin = (e, setConfirmed, setErrorMessage) => {
-		const urlSearch = new URLSearchParams(location.search);
-		const redirect = urlSearch.get('redirect');
 
-		fetch(`https://api.borumtech.com/api/login?redirect=${redirect}`, {
+
+	const handleLogin = (e, setConfirmed, setErrorMessage) => {
+		const handleErr = err => {
+			let { message } = err;
+
+			if (err.name !== 'Error') {
+				message =
+					"A system error occurred and you could not be logged in at this time. Please try again another time.";
+			}
+
+			console.error(err);
+			setErrorMessage(message);
+			setConfirmed(CONFIRMED_STATE.FAILURE);
+		};
+
+		const urlSearch = new URLSearchParams(location.search);
+		const redirect = decodeURIComponent(urlSearch.get('redirect'));
+		
+		const redirectDomain = redirect.includes('https') ? redirect.substring("https://".length) : redirect.substring("http://".length);
+		let apiPath = "https://api.borumtech.com/api/login";
+		let redirectPath = redirect;
+
+		if (redirect.includes('localhost')) {
+			console.info(redirectDomain);
+			const firstIndex = 'localhost:'.length;
+			console.log(firstIndex);
+			let redirectPort = redirectDomain.substring(firstIndex);
+			if (redirectDomain.includes('/'))
+				redirectPort = redirectDomain.substring(firstIndex, redirectDomain.indexOf('/'));
+
+			let apiPort = redirectPort + 5000;
+			console.log(redirectPort);
+
+			apiPath = `localhost:${apiPort}/v1/login`;
+		}
+
+		const apiPath = redirectDomain + "/v1/login";
+
+		// Add user to specific Borum app's database's users table
+		fetch(`https://api.${redirect ? apiPath : ordinaryApiPath}`, {
 			method: "POST",
 			headers: {
 				"content-type": "application/x-www-form-urlencoded",
@@ -49,21 +85,25 @@ export default function Login() {
 				localStorage.setItem("lastName", response.data.last_name);
 				localStorage.setItem("apiKey", response.data.api_key);
 
-				if (redirect) window.location.assign(decodeURIComponent(redirect));
-				else history.push("/account");
+				if (redirect) {
+					// Allow application to store user credentials, but send API key securely
+					fetch(`${redirect}/api/authorize`, {
+						method: 'post',
+						headers: {
+							'content-type': 'application/x-www-form-urlencoded'
+						},
+						body: `authorization=${response.data.api_key}`
+					}).then(response => {
+						if (response.ok) {
+							window.location.assign(redirect);
+						}
+					}).catch(err => { 
+						handleErr(err); 
+						window.location.assign(redirect) 
+					});
+				} else history.push("/account");
 			})
-			.catch(err => {
-				let { message } = err;
-
-				if (err.name !== 'Error') {
-					message =
-						"A system error occurred and you could not be logged in at this time. Please try again another time.";
-				}
-
-				console.error(err);
-				setErrorMessage(message);
-				setConfirmed(CONFIRMED_STATE.FAILURE);
-			});
+			.catch(handleErr);
 	};
 
 	return (
