@@ -54,7 +54,7 @@ export default function Login() {
 			apiPath = `localhost:${apiPort}/v1/login`;
 		}
 
-		const apiPath = redirectDomain + "/v1/login";
+		apiPath = redirectDomain + "/v1/login";
 
 		// Add user to specific Borum app's database's users table
 		fetch(`https://api.${redirect ? apiPath : ordinaryApiPath}`, {
